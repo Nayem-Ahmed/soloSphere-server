@@ -137,7 +137,16 @@ async function run() {
         // post bids data
         app.post('/bids', async (req, res) => {
             const bidsdata = req.body;
+            const { email, jobId } = bidsdata; // Assuming bidsdata contains user email and jobId
 
+            // Check if the user has already placed a bid for this job
+            const existingBid = await bidsCollection.findOne({ email: email, jobId: jobId });
+            if (existingBid) {
+                // If the user already placed a bid for this job, return an error message
+                return res.status(400).send({ message: 'You have already placed a bid for this job.' });
+            }
+
+            // If no bid exists, insert the new bid
             const result = await bidsCollection.insertOne(bidsdata);
             res.send(result);
 
@@ -163,6 +172,26 @@ async function run() {
             }
             const result = await bidsCollection.updateOne({ _id: new ObjectId(id) }, patchDoc);
             res.send(result)
+
+        })
+
+        // pagination start
+
+        // Get all jobs from the database with pagination
+        app.get('/all-jobs', async (req, res) => {
+            const page = parseInt(req.query.page)  
+            const limit = parseInt(req.query.limit)  
+            const skip = (page - 1) * limit; // Calculate how many documents to skip
+            console.log(page,limit);
+            
+            const result = await jobsCollection.find().skip(skip).limit(limit).toArray();
+            res.send(result)
+
+        })
+        // get all jobs from database for count
+        app.get('/jobs-count', async (req, res) => {
+            const count = await jobsCollection.countDocuments();
+            res.send({ count })
 
         })
 
