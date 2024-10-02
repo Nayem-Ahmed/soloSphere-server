@@ -148,6 +148,11 @@ async function run() {
 
             // If no bid exists, insert the new bid
             const result = await bidsCollection.insertOne(bidsdata);
+            // Update the bid count in the job document
+            await jobsCollection.updateOne(
+                { _id: new ObjectId(jobId) },
+                { $inc: { bid_count: 1 } }
+            );
             res.send(result);
 
         })
@@ -179,18 +184,47 @@ async function run() {
 
         // Get all jobs from the database with pagination
         app.get('/all-jobs', async (req, res) => {
-            const page = parseInt(req.query.page)  
-            const limit = parseInt(req.query.limit)  
+            const page = parseInt(req.query.page)
+            const limit = parseInt(req.query.limit)
             const skip = (page - 1) * limit; // Calculate how many documents to skip
-            console.log(page,limit);
-            
-            const result = await jobsCollection.find().skip(skip).limit(limit).toArray();
+            const category = req.query.category;
+            const sort = req.query.sort;
+            const search = req.query.search; // Search by job title
+
+            // Build query object for filtering
+            let query = {};
+            if (category) {
+                query.category = category;
+            }
+            // If there's a search term, add it to the query to filter by job title
+            if (search) {
+                query.jobTitle = { $regex: search, $options: 'i' }; // Case-insensitive search using regular expression
+            }
+            // Build sort object for sorting by deadline
+            let sortOption = {};
+            if (sort === 'asc') {
+                sortOption.deadline = 1; // Ascending order
+            } else if (sort === 'dsc') {
+                sortOption.deadline = -1; // Descending order
+            }
+
+            const result = await jobsCollection.find(query).skip(skip).limit(limit).sort(sortOption).toArray();
             res.send(result)
 
         })
         // get all jobs from database for count
         app.get('/jobs-count', async (req, res) => {
-            const count = await jobsCollection.countDocuments();
+            const category = req.query.category;
+            const search = req.query.search;
+            let query = {};
+            if (category) {
+                query.category = category;
+            }
+            if (search) {
+                query.jobTitle = { $regex: search, $options: 'i' }; // Case-insensitive search using regular expression
+            }
+
+            const count = await jobsCollection.countDocuments(query);
             res.send({ count })
 
         })
